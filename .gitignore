@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+generated_audio/
+voice_tests_female/
+*.pyc
+*.wav
+.env
+.env.local
+.cache/
+models/
+kokoro_cache/
+.pytest_cache/
