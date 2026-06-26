@@ -10,9 +10,11 @@ C:\Users\Lost\Documents\holder-ReaDirect\ReaDirect-TTS
 
 Selected voices:
 
-- Miss Vivian: `af_bella`, speed `0.95`
-- Miss Ciel: `af_heart`, speed `1.00`
-- Miss Estelle: `bf_isabella`, speed `0.95`
+- Miss Vivian: `af_bella`, speed `0.97`
+- Miss Ciel: `af_heart`, speed `0.94`
+- Miss Estelle: `bf_isabella`, speed `0.93`
+
+These voice IDs are fixed in the TTS service. Miss Ciel must remain `af_heart`; request payloads cannot override her to another Kokoro voice.
 
 ## Setup
 
@@ -73,14 +75,29 @@ TTS_BASE_URL=http://127.0.0.1:8002
 TTS_TIMEOUT_SECONDS=10
 TTS_FALLBACK_TO_TEXT=true
 TTS_CACHE_ENABLED=true
-TTS_DEBUG=false
-TTS_VOICE_VIVIAN=af_bella
-TTS_VOICE_CIEL=af_heart
-TTS_VOICE_ESTELLE=bf_isabella
-TTS_SPEED_VIVIAN=0.95
-TTS_SPEED_CIEL=1.00
-TTS_SPEED_ESTELLE=0.95
+TTS_DEBUG_LOGGING=true
+TTS_AGENT_PROFILES_ENABLED=true
+TTS_AGENT_SPEED_VIVIAN=0.97
+TTS_AGENT_SPEED_CIEL=0.94
+TTS_AGENT_SPEED_ESTELLE=0.93
+TTS_TEXT_HUMANIZER_ENABLED=true
+TTS_TEXT_HUMANIZER_MODE=friendly
+TTS_TEXT_HUMANIZER_VARIATION_ENABLED=true
+TTS_TEXT_HUMANIZER_LOGGING=true
+TTS_DELIVERY_CONTROL_ENABLED=true
+TTS_SAFE_CHUNKING_ENABLED=true
+TTS_MIN_FRIENDLY_TOKENS=12
+TTS_MAX_COACHING_SENTENCES=3
+TTS_HUMANIZER_ENABLED=true
+TTS_AUDIO_NORMALIZE_ENABLED=true
+TTS_AUDIO_FADE_ENABLED=true
+TTS_PAUSE_CONTROL_ENABLED=true
+TTS_BREATHS_ENABLED=false
+TTS_BREATHS_VOLUME=0.08
+TTS_BREATHS_MIN_TEXT_LENGTH=80
 ```
+
+See `READIRECT_TTS_HUMANIZATION.md` for the profile, text humanization, delivery, and audio post-processing pipeline.
 
 ## Do Not Commit
 
