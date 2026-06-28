@@ -6,11 +6,13 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 from agent_voice_profiles import AgentVoiceProfile, env_bool, env_float
+import tts_config
 
 
 PROTECTED_CONTEXTS = {
     "answer_choice",
     "answer_choices",
+    "assessment_question",
     "asr_result",
     "asr_transcript",
     "assessment_passage",
@@ -18,20 +20,27 @@ PROTECTED_CONTEXTS = {
     "content_bank",
     "debug",
     "expected_answer",
+    "expected_answers",
     "expected_spoken_answer",
+    "expected_spoken_answers",
     "learner_answer",
     "learner_transcript",
     "letter",
     "phrase",
     "score",
+    "score_value",
+    "score_values",
     "scoring_label",
+    "scoring_labels",
     "system",
     "target",
     "target_letter",
     "target_phrase",
     "target_word",
+    "target_words",
     "transcript",
     "word",
+    "reading_passage",
 }
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9']+")
@@ -58,6 +67,9 @@ class DeliveryResult:
 
 
 def text_humanizer_enabled(request_value: Optional[bool] = None) -> bool:
+    if not tts_config.auto_prompt_extension_enabled():
+        return False
+
     if request_value is not None:
         return request_value and env_bool("TTS_TEXT_HUMANIZER_ENABLED", True)
 
@@ -119,29 +131,29 @@ def _agent_variants(agent: str, variants: Mapping[str, Sequence[str]], fallback:
 SHORT_LINE_VARIANTS: dict[str, dict[str, Sequence[str]]] = {
     "good job": {
         "miss_ciel": (
-            "Good job. You said that clearly.",
-            "Good job. That sounded clear and careful.",
+            "Nice work! You said that clearly.",
+            "Nice work! That sounded clear and careful.",
         ),
         "miss_vivian": (
-            "Good job. You answered that clearly.",
-            "Good job. Nice clear answer.",
+            "Nice work! You answered that clearly.",
+            "Good job! Nice clear answer.",
         ),
         "miss_estelle": (
-            "Good job. That was clear work.",
-            "Good job. You handled that well.",
+            "Good job! That was clear work.",
+            "Nice work. You handled that well.",
         ),
     },
     "try again": {
         "miss_ciel": (
-            "That's okay. Let's try that one more time.",
+            "That's okay, let's try that one more time.",
             "That is okay. Take your time, and let's try it again.",
         ),
         "miss_vivian": (
-            "That's okay. Try that one more time when you're ready.",
+            "That's okay, try that one more time when you're ready.",
             "Not quite yet. Try that one more time.",
         ),
         "miss_estelle": (
-            "That's okay. Let's try that again carefully.",
+            "That's okay, let's try that again carefully.",
             "Not quite yet. Take a moment, then try again.",
         ),
     },
@@ -153,15 +165,15 @@ SHORT_LINE_VARIANTS: dict[str, dict[str, Sequence[str]]] = {
     },
     "incorrect": {
         "miss_ciel": (
-            "That's not quite right. Let's try it again together.",
+            "That's not quite right, but we can try it again together.",
             "Not quite yet. Let's slow it down and try again.",
         ),
         "miss_vivian": (
-            "That's not quite right. Try it again when you're ready.",
+            "That's not quite right, but try it again when you're ready.",
             "Not quite yet. Listen once more, then try again.",
         ),
         "miss_estelle": (
-            "That's not quite right. Let's look at it gently and try again.",
+            "That's not quite right, but we can look at it gently and try again.",
             "Not quite yet. We can try that again carefully.",
         ),
     },

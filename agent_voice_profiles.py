@@ -45,6 +45,7 @@ def resolve_estelle_voice_id() -> str:
 @dataclass(frozen=True)
 class AgentVoiceProfile:
     agent: str
+    agent_key: str
     display_name: str
     voice: str
     default_speed: float
@@ -52,6 +53,7 @@ class AgentVoiceProfile:
     max_speed: float
     role: str
     personality: tuple[str, ...]
+    delivery: tuple[str, ...]
     emotional_direction: str
     delivery_style: str
     aliases: tuple[str, ...] = ()
@@ -85,6 +87,7 @@ def load_agent_profiles() -> Dict[str, AgentVoiceProfile]:
     return {
         "miss_ciel": AgentVoiceProfile(
             agent="miss_ciel",
+            agent_key="ciel",
             display_name="Miss Ciel",
             voice="af_heart",
             default_speed=_profile_speed("TTS_AGENT_SPEED_CIEL", 0.94, 0.92, 0.96),
@@ -92,30 +95,34 @@ def load_agent_profiles() -> Dict[str, AgentVoiceProfile]:
             max_speed=0.96,
             role="reading coach",
             personality=("warm", "gentle", "patient", "friendly"),
+            delivery=("warm", "gentle", "patient", "friendly"),
             emotional_direction="encouraging, soft, calm, never harsh",
             delivery_style=(
                 "sounds like a supportive friend helping the learner read, "
                 "not a strict teacher"
             ),
-            aliases=("coach_feedback",),
+            aliases=("coach_feedback", "ciel"),
         ),
         "miss_vivian": AgentVoiceProfile(
             agent="miss_vivian",
+            agent_key="vivian",
             display_name="Miss Vivian",
             voice="af_bella",
             default_speed=_profile_speed("TTS_AGENT_SPEED_VIVIAN", 0.97, 0.95, 1.00),
             min_speed=0.95,
             max_speed=1.00,
             role="assessment guide",
-            personality=("clear", "cheerful", "supportive"),
+            personality=("clear", "friendly", "encouraging"),
+            delivery=("clear", "friendly", "encouraging"),
             emotional_direction="encouraging but controlled",
             delivery_style=(
                 "friendly guide who gives clear instructions without sounding robotic"
             ),
-            aliases=("assessment",),
+            aliases=("assessment", "vivian"),
         ),
         "miss_estelle": AgentVoiceProfile(
             agent="miss_estelle",
+            agent_key="estelle",
             display_name="Miss Estelle",
             voice=resolve_estelle_voice_id(),
             default_speed=_profile_speed("TTS_AGENT_SPEED_ESTELLE", 0.93, 0.90, 0.95),
@@ -123,9 +130,10 @@ def load_agent_profiles() -> Dict[str, AgentVoiceProfile]:
             max_speed=0.95,
             role="evaluator",
             personality=("calm", "reassuring", "kind"),
+            delivery=("calm", "reassuring", "kind"),
             emotional_direction="gentle, formal, not too playful",
             delivery_style="explains results in a comforting and human way",
-            aliases=("evaluator", "evaluator_recommendation"),
+            aliases=("evaluator", "evaluator_recommendation", "estelle"),
         ),
     }
 

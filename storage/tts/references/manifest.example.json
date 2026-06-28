@@ -1,0 +1,50 @@
+{
+  "ciel": {
+    "intro": [
+      "ciel/intro/example_01.wav"
+    ],
+    "gentle_reassurance": [
+      "ciel/gentle_reassurance/example_01.wav"
+    ],
+    "friendly_encouragement": [
+      "ciel/friendly_encouragement/example_01.wav"
+    ],
+    "happy_praise": [
+      "ciel/happy_praise/example_01.wav"
+    ],
+    "focused_instruction": [
+      "ciel/focused_instruction/example_01.wav"
+    ],
+    "playful_friend": [
+      "ciel/playful_friend/example_01.wav"
+    ]
+  },
+  "vivian": {
+    "gentle_reassurance": [
+      "vivian/gentle_reassurance/example_01.wav"
+    ],
+    "friendly_encouragement": [
+      "vivian/friendly_encouragement/example_01.wav"
+    ],
+    "happy_praise": [
+      "vivian/happy_praise/example_01.wav"
+    ],
+    "focused_instruction": [
+      "vivian/focused_instruction/example_01.wav"
+    ]
+  },
+  "estelle": {
+    "gentle_reassurance": [
+      "estelle/gentle_reassurance/example_01.wav"
+    ],
+    "calm_evaluation": [
+      "estelle/calm_evaluation/example_01.wav"
+    ],
+    "happy_praise": [
+      "estelle/happy_praise/example_01.wav"
+    ],
+    "focused_instruction": [
+      "estelle/focused_instruction/example_01.wav"
+    ]
+  }
+}

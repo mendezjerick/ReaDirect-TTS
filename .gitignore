@@ -1,6 +1,11 @@
 .venv/
 __pycache__/
 generated_audio/
+storage/tts/cache/**/*
+!storage/tts/cache/**/
+!storage/tts/cache/**/.gitkeep
+storage/tts/references/manifest.json
+storage/tts/references/**/*.mp3
 voice_tests_female/
 *.pyc
 *.wav
