@@ -14,6 +14,7 @@ SUPPORTED_INTENTS = (
     "focused_instruction",
     "calm_evaluation",
     "playful_friend",
+    "module_echo_correct",
 )
 
 AGENT_REFERENCE_KEYS = {
@@ -43,6 +44,7 @@ AGENT_ALLOWED_INTENTS = {
         "happy_praise",
         "focused_instruction",
         "playful_friend",
+        "module_echo_correct",
     },
     "vivian": {
         "intro",
@@ -68,6 +70,7 @@ INTENT_PROMPTS = {
     "focused_instruction": "focused, clear, patient instruction",
     "calm_evaluation": "calm and supportive",
     "playful_friend": "light, friendly, playful reading buddy",
+    "module_echo_correct": "clear, exact target pronunciation",
 }
 
 

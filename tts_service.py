@@ -97,7 +97,9 @@ class VoiceLineBatchItem(BaseModel):
     agent: str
     intent: str
     text: str
+    synthesis_text: Optional[str] = None
     voice_id: Optional[str] = None
+    reference_audio_path: Optional[str] = None
     is_static: bool = True
     is_defense_demo: bool = False
 
@@ -108,6 +110,7 @@ class VoiceLineBatchRequest(BaseModel):
     engine: str = "index_tts2"
     fallback: bool = True
     force: bool = False
+    generate_stage2: bool = True
     active_stage: str = "reference_style"
     output_root: str
     public_relative_root: str = "tts/generated_voice_lines"
@@ -573,10 +576,80 @@ def _public_relative_path(public_root: str, *parts: str) -> str:
     return "/".join([clean_root, *clean_parts])
 
 
+def _voice_line_module_part(line_key: str) -> Optional[str]:
+    match = re.search(r"\.module_([123])\.", line_key or "")
+    if match:
+        return f"module_{match.group(1)}"
+
+    return None
+
+
+def _voice_line_intent_parts(intent: str, line_key: str = "") -> tuple[str, ...]:
+    if intent == "module_echo_correct":
+        module_part = _voice_line_module_part(line_key)
+        if module_part:
+            return ("module_echo", "correct", module_part)
+
+        return ("module_echo", "correct")
+
+    return (intent,)
+
+
 def _voice_line_filename(line_key: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9]+", "_", line_key).strip("_").lower() or "voice_line"
     digest = hashlib.sha256(line_key.encode("utf-8")).hexdigest()[:8]
     return f"{slug}_{digest}.wav"
+
+
+def _reference_priority_and_weight(duration_seconds: Optional[float]) -> tuple[str, int]:
+    if duration_seconds is None:
+        return "unknown", 1
+    if duration_seconds >= tts_config.reference_high_priority_min_seconds():
+        return "high", 5
+    if duration_seconds >= tts_config.reference_medium_priority_min_seconds():
+        return "medium", 2
+    return "low", 1
+
+
+def _reference_duration(path: Path) -> Optional[float]:
+    try:
+        return float(sf.info(path).duration)
+    except Exception:
+        return None
+
+
+def _override_reference_selection(
+    item: VoiceLineBatchItem,
+    prepared: PreparedSynthesis,
+) -> Optional[ReferenceSelection]:
+    configured = (item.reference_audio_path or "").strip()
+    if not configured:
+        return None
+
+    relative_path = configured.replace("\\", "/").strip("/")
+    path = Path(configured)
+    if not path.is_absolute():
+        path = tts_config.reference_audio_root() / relative_path
+
+    if not path.exists() or not path.is_file():
+        logger.warning("Voice line reference override missing for %s: %s", item.line_key, path)
+        return None
+
+    duration = _reference_duration(path)
+    priority, weight = _reference_priority_and_weight(duration)
+    return ReferenceSelection(
+        prepared.intent_result.intent,
+        prepared.intent_result.intent,
+        prepared.profile.agent_key,
+        path,
+        relative_path,
+        "reference_override",
+        True,
+        duration_seconds=duration,
+        priority=priority,
+        weight=weight,
+        weighting_version="override-v1",
+    )
 
 
 def _file_checksum(path: Optional[Path]) -> Optional[str]:
@@ -683,30 +756,42 @@ def _active_batch_path(active_stage: str, stage1: dict[str, Any], stage2: dict[s
 
 
 def _voice_line_batch_item(request: VoiceLineBatchRequest, item: VoiceLineBatchItem) -> dict[str, Any]:
+    is_echo = item.intent == "module_echo_correct"
+    is_correct_echo = item.intent == "module_echo_correct"
+    generate_stage2 = request.generate_stage2 and request.mode != "pregenerate_stage1"
+    synthesis_source_text = (item.synthesis_text or "").strip() or item.text
     synth_request = SynthesizeRequest(
         agent=item.agent,
-        text=item.text,
+        text=synthesis_source_text,
         intent=item.intent,
         line_key=item.line_key,
         engine=tts_config.expressive_engine_name(),
         expressive=True,
         cache=False,
         context="voice_line_pregeneration",
-        humanize=True,
-        delivery_control=True,
+        metadata={
+            "intent": item.intent,
+            "prosody_intent": item.intent,
+            "line_key": item.line_key,
+        },
+        humanize=not is_echo,
+        delivery_control=not is_correct_echo,
         audio_humanizer=False,
-        pause_control=True,
+        pause_control=not is_correct_echo,
     )
     prepared = audio_path_for(synth_request)
+    reference_override = _override_reference_selection(item, prepared)
     agent_key = prepared.profile.agent_key
     filename = _voice_line_filename(item.line_key)
     output_root = Path(request.output_root)
-    reference_style_public = _public_relative_path(request.public_relative_root, "reference_style", agent_key, prepared.intent_result.intent, filename)
-    kokoro_identity_public = _public_relative_path(request.public_relative_root, "kokoro_identity", agent_key, prepared.intent_result.intent, filename)
-    reference_style_output = output_root / "reference_style" / agent_key / prepared.intent_result.intent / filename
-    kokoro_identity_output = output_root / "kokoro_identity" / agent_key / prepared.intent_result.intent / filename
+    folder_intent = item.intent if is_echo else prepared.intent_result.intent
+    intent_parts = _voice_line_intent_parts(folder_intent, item.line_key)
+    reference_style_public = _public_relative_path(request.public_relative_root, "reference_style", agent_key, *intent_parts, filename)
+    kokoro_identity_public = _public_relative_path(request.public_relative_root, "kokoro_identity", agent_key, *intent_parts, filename)
+    reference_style_output = output_root / "reference_style" / agent_key / Path(*intent_parts) / filename
+    kokoro_identity_output = output_root / "kokoro_identity" / agent_key / Path(*intent_parts) / filename
 
-    reference = prepared.reference_selection
+    reference = reference_override or prepared.reference_selection
     stage1_speaker = reference.path
     stage1_style = reference.path
     stage1_request = EngineRequest(
@@ -732,41 +817,55 @@ def _voice_line_batch_item(request: VoiceLineBatchRequest, item: VoiceLineBatchI
         stage1_speaker,
     )
 
-    kokoro_speaker = kokoro_reference_path(prepared.agent, prepared.profile, CACHE_DIR)
-    try:
-        ensure_kokoro_timbre_reference(prepared.agent, prepared.profile, CACHE_DIR, generate_audio)
-    except Exception as exc:
-        logger.warning("Could not prepare Kokoro speaker reference for %s: %s", prepared.agent, exc)
+    if generate_stage2:
+        kokoro_speaker = kokoro_reference_path(prepared.agent, prepared.profile, CACHE_DIR)
+        try:
+            ensure_kokoro_timbre_reference(prepared.agent, prepared.profile, CACHE_DIR, generate_audio)
+        except Exception as exc:
+            logger.warning("Could not prepare Kokoro speaker reference for %s: %s", prepared.agent, exc)
 
-    stage2_style = reference_style_output if reference_style_output.exists() else reference.path
-    stage2_request = EngineRequest(
-        text=prepared.synthesis_text,
-        agent=prepared.agent,
-        profile=prepared.profile,
-        voice=prepared.voice,
-        speed=prepared.speed,
-        output_path=kokoro_identity_output,
-        intent=prepared.intent_result.intent,
-        emotion_prompt=prepared.emotion_prompt,
-        style_reference_path=stage2_style,
-        speaker_reference_path=kokoro_speaker,
-        audio_humanizer_request=False,
-        pause_control_request=True,
-    )
-    stage2 = _generate_voice_line_stage(
-        stage2_request,
-        kokoro_identity_public,
-        "stage2_kokoro_identity",
-        request.force,
-        stage2_style,
-        kokoro_speaker,
-    )
+        stage2_style = reference_style_output if reference_style_output.exists() else reference.path
+        stage2 = _generate_voice_line_stage(
+            EngineRequest(
+                text=prepared.synthesis_text,
+                agent=prepared.agent,
+                profile=prepared.profile,
+                voice=prepared.voice,
+                speed=prepared.speed,
+                output_path=kokoro_identity_output,
+                intent=prepared.intent_result.intent,
+                emotion_prompt=prepared.emotion_prompt,
+                style_reference_path=stage2_style,
+                speaker_reference_path=kokoro_speaker,
+                audio_humanizer_request=False,
+                pause_control_request=True,
+            ),
+            kokoro_identity_public,
+            "stage2_kokoro_identity",
+            request.force,
+            stage2_style,
+            kokoro_speaker,
+        )
+    else:
+        stage2 = {
+            "status": "skipped",
+            "error": "stage2_disabled_for_request",
+            "public_audio_path": None,
+            "duration_seconds": None,
+            "engine_used": None,
+            "speaker_reference_path": None,
+            "style_source_path": None,
+        }
 
     active_type, active_path = _active_batch_path(request.active_stage, stage1, stage2)
     stage1_ready = bool(stage1.get("public_audio_path"))
     stage2_ready = bool(stage2.get("public_audio_path"))
-    status = "generated" if stage1_ready and stage2_ready else "fallback_generated" if stage1_ready or stage2_ready else "failed"
-    generation_error = None if status != "failed" else "; ".join(filter(None, [stage1.get("error"), stage2.get("error")])) or "generation_failed"
+    if generate_stage2:
+        status = "generated" if stage1_ready and stage2_ready else "fallback_generated" if stage1_ready or stage2_ready else "failed"
+        generation_error = None if status != "failed" else "; ".join(filter(None, [stage1.get("error"), stage2.get("error")])) or "generation_failed"
+    else:
+        status = "generated" if stage1_ready else "failed"
+        generation_error = None if stage1_ready else stage1.get("error") or "stage1_generation_failed"
     active_file = reference_style_output if active_path == reference_style_public else kokoro_identity_output if active_path == kokoro_identity_public else None
 
     return {
@@ -936,7 +1035,7 @@ def synthesize(request: SynthesizeRequest):
 
 @app.post("/voice-lines/generate-batch")
 def generate_voice_line_batch(request: VoiceLineBatchRequest):
-    if request.mode != "pregenerate_two_stage":
+    if request.mode not in {"pregenerate_two_stage", "pregenerate_stage1"}:
         raise HTTPException(status_code=422, detail="Unsupported batch generation mode.")
     if not tts_config.two_stage_generation_enabled():
         raise HTTPException(status_code=409, detail="Two-stage generation is disabled.")
