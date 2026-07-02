@@ -1,6 +1,8 @@
 .venv/
+.venv*/
 __pycache__/
 generated_audio/
+external/index-tts/
 storage/tts/cache/**/*
 !storage/tts/cache/**/
 !storage/tts/cache/**/.gitkeep
